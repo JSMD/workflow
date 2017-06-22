@@ -1,0 +1,32 @@
+{
+  "workflows": {
+    "tournament_lifecycle": {
+      "supports": [
+        "Card"
+      ],
+      "property": "status",
+      "states": [
+        "draft",
+        "waiting",
+        "canceled",
+        "published"
+      ],
+      "transitions": {
+        "cancel": {
+          "from": [
+            "published",
+            "waiting"
+          ],
+          "to": "canceled"
+        },
+        "publish": {
+          "from": [
+            "draft",
+            "waiting"
+          ],
+          "to": "published"
+        }
+      }
+    }
+  }
+}

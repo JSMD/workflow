@@ -1,0 +1,20 @@
+{
+  "name": "workflow",
+  "version": "0.0.1",
+  "description": "Tool for managing workflow or finite state machine",
+  "main": "index.js",
+  "repository": "git@github.com:JSMD/workflow.git",
+  "author": "JSMD Team",
+  "license": "MIT",
+  "scripts": {
+    "test": "mocha --recursive"
+  },
+  "devDependencies": {
+    "chai": "^4.0.2",
+    "eslint": "^4.0.0",
+    "eslint-config-airbnb-base": "^11.2.0",
+    "eslint-plugin-import": "^2.3.0",
+    "mocha": "^3.4.2",
+    "mongoose": "^4.10.8"
+  }
+}
