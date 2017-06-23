@@ -5,7 +5,7 @@
         "Card"
       ],
       "property": "status",
-      "states": [
+      "places": [
         "draft",
         "waiting",
         "canceled",

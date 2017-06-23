@@ -1,11 +1,7 @@
-const ModelNotSupportedError = require('./model-not-supported-error');
-const ModelPropertyNotSetError = require('./model-property-not-set-error');
-const MultipleWorkflowsPerObjectError = require('./multiple-workflows-per-object-error');
-const ModelApplyError = require('./model-apply-error');
+const InvalidInstanceError = require('./invalid-instance-error');
+const LogicError = require('./logic-error');
 
 module.exports = {
-  ModelNotSupportedError,
-  ModelPropertyNotSetError,
-  MultipleWorkflowsPerObjectError,
-  ModelApplyError,
+  InvalidInstanceError,
+  LogicError,
 };

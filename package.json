@@ -7,14 +7,21 @@
   "author": "JSMD Team",
   "license": "MIT",
   "scripts": {
-    "test": "mocha --recursive"
+    "test": "nyc mocha --recursive",
+    "fix": "eslint -c .eslintrc.json src/  --fix",
+    "coverage": "nyc report --reporter=text-lcov | coveralls"
   },
   "devDependencies": {
     "chai": "^4.0.2",
+    "coveralls": "^2.13.1",
     "eslint": "^4.0.0",
     "eslint-config-airbnb-base": "^11.2.0",
     "eslint-plugin-import": "^2.3.0",
+    "gulp": "^3.9.1",
+    "gulp-eslint": "^4.0.0",
     "mocha": "^3.4.2",
-    "mongoose": "^4.10.8"
+    "mongoose": "^4.10.8",
+    "nyc": "^11.0.3",
+    "sinon": "^2.3.6"
   }
 }

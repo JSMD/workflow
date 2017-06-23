@@ -1,52 +1,27 @@
 /* global describe it */
-
-const Workflow = require('../../src/module/workflow');
-const Model1 = require('../helper/model1').Model;
-const Model2 = require('../helper/model2').Model;
-const Model3 = require('../helper/model3').Model;
-
 const assert = require('chai').assert;
+const sinon = require('sinon');
+
+const Workflow = require('../../').Workflow;
+const DefinitionBuilder = require('../../').DefinitionBuilder;
+const Transition = require('../../').Transition;
+const Marking = require('../../').Marking;
+const SingleStateMarkingStore = require('../../src/module/marking-store').SingleStateMarkingStore;
 const error = require('../../src/error');
 
-const options = {
-  workflows: {
-    test_lifecycle: {
-      supports: [
-        'Card',
-        'Model2',
-        'Model3',
-      ],
-      property: 'status',
-      states: [
-        'state1',
-        'state2',
-        'state3',
-      ],
-      transitions: {
-        transition1: {
-          from: [
-            'state1',
-          ],
-          to: 'state2',
-        },
-        transition2: {
-          from: [
-            'state2',
-          ],
-          to: 'state3',
-        },
-      },
-    },
-    test_2_lifecycle: {
-      supports: [
-        'Model3',
-      ],
-      property: 'status',
-      states: [],
-      transitions: {},
-    },
-  },
-};
+const definitionBuilder = new DefinitionBuilder();
+const definition = definitionBuilder
+  .addPlaces(['draft', 'created', 'deleted'])
+  .addTransition(new Transition('create', ['draft'], ['created']))
+  .addTransition(new Transition('delete', ['created'], ['deleted']))
+  .setMarking(new Marking(['created']))
+  .build();
+
+class Article {
+  constructor() {
+    this.state = null;
+  }
+}
 
 describe('Workflow', () => {
   describe('Workflow constructor', () => {
@@ -56,92 +31,254 @@ describe('Workflow', () => {
     });
   });
 
-  describe('Workflow exceptions', () => {
-    it('should throw error ModelNotSupportedError', (done) => {
-      const model1 = new Model1();
-      model1.status = 'state1';
-
-      const workflow = new Workflow(options);
+  describe('getMarking', () => {
+    it('should return LogicError if the marking is not an instance of MarkingStore', () => {
+      const markingStore = new SingleStateMarkingStore('state');
+      sinon.stub(markingStore, 'getMarking');
+      const workflow = new Workflow(definition, markingStore, 'simple-workflow');
       try {
-        workflow.can(model1, 'transition1');
-      } catch (e) {
-        assert.instanceOf(e, error.ModelNotSupportedError);
-        assert.isTrue(true);
-        done();
+        workflow.getMarking(new Article());
+        assert.isTrue(false, 'should throw LogicError');
+      } catch (err) {
+        assert.instanceOf(err, error.LogicError);
       }
     });
 
-    it('should throw error ModelPropertyNotSetError', (done) => {
-      const model2 = new Model2();
-      const workflow = new Workflow(options);
-
+    it('should return LogicError when the marking has a different place than from definition', () => {
+      const markingStore = new SingleStateMarkingStore('state');
+      sinon.stub(markingStore, 'getMarking').callsFake(() => new Marking(['archived']));
+      const workflow = new Workflow(definition, markingStore, 'flow');
       try {
-        workflow.can(model2, 'transition1');
-      } catch (e) {
-        assert.instanceOf(e, error.ModelPropertyNotSetError);
-        assert.isTrue(true);
-        done();
+        workflow.getMarking(new Article());
+        assert.isTrue(false, 'should throw LogicError');
+      } catch (err) {
+        assert.instanceOf(err, error.LogicError);
       }
     });
 
-    it('should throw error MultipleworkflowsPerObjectError', (done) => {
-      const model3 = new Model3();
-      const workflow = new Workflow(options);
-
+    it('should throw LogicError when the definition places are empty', () => {
+      const markingStore = new SingleStateMarkingStore('state');
+      const localDefinition = Object.create(definition);
+      localDefinition.places = [];
+      const workflow = new Workflow(localDefinition, markingStore, 'flow');
       try {
-        workflow.can(model3, 'transition1');
-      } catch (e) {
-        assert.instanceOf(e, error.MultipleWorkflowsPerObjectError);
-        assert.isTrue(true);
-        done();
+        workflow.getMarking(new Article());
+        assert.isTrue(false, 'should throw LogicError');
+      } catch (err) {
+        assert.instanceOf(err, error.LogicError);
+      }
+    });
+
+    it('should throw LogicError when the definition initialPlace and marking are empty', () => {
+      const markingStore = new SingleStateMarkingStore('state');
+      sinon.stub(markingStore, 'getMarking').callsFake(() => new Marking([]));
+      const localDefinition = Object.create(definition);
+      localDefinition.initialPlace = null;
+      const workflow = new Workflow(localDefinition, markingStore, 'flow');
+      try {
+        workflow.getMarking(new Article());
+        assert.isTrue(false, 'should throw LogicError');
+      } catch (err) {
+        assert.instanceOf(err, error.LogicError);
       }
     });
   });
 
-  describe('Workflow can', () => {
-    it('should return can make transition "transition1"', () => {
-      const model2 = new Model2();
-      model2.status = 'state1';
+  describe('getEnabledTransitions', () => {
+    it('should have empty enabled transitions for object with end state', () => {
+      const markingStore = new SingleStateMarkingStore('state');
+      const workflow = new Workflow(definition, markingStore, 'simple-workflow');
+      const article = new Article();
+      article.state = 'deleted';
 
-      const workflow = new Workflow(options);
-
-      assert.isTrue(workflow.can(model2, 'transition1'));
+      assert.equal(0, workflow.getEnabledTransitions(article).length);
     });
 
-    it('should return can not make transition "transition1"', () => {
-      const model2 = new Model2();
-      model2.status = 'state2';
+    it('should have one enablet transitions', () => {
+      const markingStore = new SingleStateMarkingStore('state');
+      const workflow = new Workflow(definition, markingStore, 'simple-workflow');
+      const article = new Article();
+      article.state = 'created';
 
-      const workflow = new Workflow(options);
-
-      assert.isFalse(workflow.can(model2, 'transition1'));
+      assert.equal(1, workflow.getEnabledTransitions(article).length);
     });
-  });
 
-  describe('Workflow apply', () => {
-    describe('Workflow apply exception', () => {
-      it('should throw error ModelApplyError', (done) => {
-        const model2 = new Model2();
-        model2.status = 'state2';
+    it('should disable transition from event listner generic', () => {
+      const markingStore = new SingleStateMarkingStore('state');
+      const workflow = new Workflow(definition, markingStore, 'simple-workflow');
+      const article = new Article();
+      article.state = 'created';
 
-        const workflow = new Workflow(options);
+      assert.equal(1, workflow.getEnabledTransitions(article).length);
 
-        try {
-          workflow.apply(model2, 'transition1');
-        } catch (e) {
-          assert.instanceOf(e, error.ModelApplyError);
-          assert.isTrue(true);
-          done();
-        }
+      workflow.on('workflow.guard', (event) => {
+        event.blocked = true;
       });
+
+      assert.equal(0, workflow.getEnabledTransitions(article).length);
     });
 
-    it('should apply "transition1"', () => {
-      assert.isTrue(true);
+    it('should disable transition from event workflow transition name', () => {
+      const markingStore = new SingleStateMarkingStore('state');
+      const workflow = new Workflow(definition, markingStore, 'simple-workflow');
+      const article = new Article();
+      article.state = 'created';
+
+      assert.equal(1, workflow.getEnabledTransitions(article).length);
+
+      workflow.on('workflow.simple-workflow.guard', (event) => {
+        event.blocked = true;
+      });
+
+      assert.equal(0, workflow.getEnabledTransitions(article).length);
     });
 
-    it('should return can not make transition "transition1"', () => {
-      assert.isTrue(true);
+    it('should disable transition from event listner transition name', () => {
+      const markingStore = new SingleStateMarkingStore('state');
+      const workflow = new Workflow(definition, markingStore, 'simple-workflow');
+      const article = new Article();
+      article.state = 'created';
+
+      assert.equal(1, workflow.getEnabledTransitions(article).length);
+
+      workflow.on('workflow.simple-workflow.guard.delete', (event) => {
+        event.blocked = true;
+      });
+
+      assert.equal(0, workflow.getEnabledTransitions(article).length);
+    });
+  });
+
+  describe('can', () => {
+    it('should can', () => {
+      const markingStore = new SingleStateMarkingStore('state');
+      const workflow = new Workflow(definition, markingStore, 'simple-workflow');
+      const article = new Article();
+      article.state = 'draft';
+      const newTransition = 'create';
+
+      assert.isTrue(workflow.can(article, newTransition));
+    });
+
+    it('should can not', () => {
+      const markingStore = new SingleStateMarkingStore('state');
+      const workflow = new Workflow(definition, markingStore, 'simple-workflow');
+      const article = new Article();
+      article.state = 'draft';
+      const newTransition = 'delete';
+
+      assert.isFalse(workflow.can(article, newTransition));
+    });
+  });
+
+  describe('apply', () => {
+    it('should throw exception', () => {
+      const markingStore = new SingleStateMarkingStore('state');
+      const workflow = new Workflow(definition, markingStore, 'simple-workflow');
+      const article = new Article();
+      article.state = 'draft';
+      const newTransition = 'delete';
+
+      try {
+        workflow.apply(article, newTransition);
+        assert.isTrue(false, 'should throw LogicError');
+      } catch (err) {
+        assert.instanceOf(err, error.LogicError);
+      }
+    });
+
+    it('should apply dispatch leave', (done) => {
+      const markingStore = new SingleStateMarkingStore('state');
+      const workflow = new Workflow(definition, markingStore, 'simple-workflow');
+      const article = new Article();
+      const newTransition = 'create';
+      article.state = 'draft';
+
+      workflow.on('workflow.leave', () => {
+        assert.isTrue(true);
+      });
+      workflow.on('workflow.simple-workflow.leave', () => {
+        assert.isTrue(true);
+      });
+      workflow.on('workflow.simple-workflow.leave.draft', () => {
+        assert.isTrue(true);
+        done();
+      });
+      workflow.apply(article, newTransition);
+    });
+
+    it('should apply dispatch transition', (done) => {
+      const markingStore = new SingleStateMarkingStore('state');
+      const workflow = new Workflow(definition, markingStore, 'simple-workflow');
+      const article = new Article();
+      const newTransition = 'create';
+      article.state = 'draft';
+
+      workflow.on('workflow.transition', () => {
+        assert.isTrue(true);
+      });
+      workflow.on('workflow.simple-workflow.transition', () => {
+        assert.isTrue(true);
+      });
+      workflow.on('workflow.simple-workflow.transition.create', () => {
+        assert.isTrue(true);
+        done();
+      });
+      workflow.apply(article, newTransition);
+    });
+
+    it('should apply dispatch enter', (done) => {
+      const markingStore = new SingleStateMarkingStore('state');
+      const workflow = new Workflow(definition, markingStore, 'simple-workflow');
+      const article = new Article();
+      const newTransition = 'create';
+      article.state = 'draft';
+
+      workflow.on('workflow.enter', () => {
+        assert.isTrue(true);
+      });
+      workflow.on('workflow.simple-workflow.enter', () => {
+        assert.isTrue(true);
+      });
+      workflow.on('workflow.simple-workflow.enter.created', () => {
+        assert.isTrue(true);
+        done();
+      });
+      workflow.apply(article, newTransition);
+    });
+
+    it('should apply dispatch entered', (done) => {
+      const markingStore = new SingleStateMarkingStore('state');
+      const workflow = new Workflow(definition, markingStore, 'simple-workflow');
+      const article = new Article();
+      const newTransition = 'create';
+      article.state = 'draft';
+
+      workflow.on('workflow.entered', () => {
+        assert.isTrue(true);
+      });
+      workflow.on('workflow.simple-workflow.entered', () => {
+        assert.isTrue(true);
+      });
+      workflow.on('workflow.simple-workflow.entered.created', () => {
+        assert.isTrue(true);
+        done();
+      });
+      workflow.apply(article, newTransition);
+    });
+
+    it('should apply dispatch anounce', (done) => {
+      const markingStore = new SingleStateMarkingStore('state');
+      const workflow = new Workflow(definition, markingStore, 'simple-workflow');
+      const article = new Article();
+      const newTransition = 'create';
+      article.state = 'draft';
+
+      workflow.on('workflow.simple-workflow.announce.delete', () => {
+        assert.isTrue(true);
+        done();
+      });
+      workflow.apply(article, newTransition);
     });
   });
 });
