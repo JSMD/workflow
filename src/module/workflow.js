@@ -1,5 +1,4 @@
 const EventEmitter = require('events').EventEmitter;
-const util = require('util');
 
 const Marking = require('../../src/module/marking');
 const error = require('../error');
@@ -9,8 +8,8 @@ function guardTransition(subject, marking, transition) {
   const guardEvent = new event.GuardEvent();
 
   this.emit('workflow.guard', guardEvent);
-  this.emit(util.format('workflow.%s.guard', this.name), guardEvent);
-  this.emit(util.format('workflow.%s.guard.%s', this.name, transition.name), guardEvent);
+  this.emit(`workflow.${this.name}.guard`, guardEvent);
+  this.emit(`workflow.${this.name}.guard.${transition.name}`, guardEvent);
 
   return guardEvent.isBlocked();
 }
@@ -35,10 +34,10 @@ function dispatchLeave(subject, transition, marking) {
   const workflowEvent = new event.Event(subject, marking, transition, this.name);
 
   this.emit('workflow.leave', workflowEvent);
-  this.emit(util.format('workflow.%s.leave', this.name), workflowEvent);
+  this.emit(`workflow.${this.name}.leave`, workflowEvent);
 
   places.forEach((place) => {
-    this.emit(util.format('workflow.%s.leave.%s', this.name, place), workflowEvent);
+    this.emit(`workflow.${this.name}.leave.${place}`, workflowEvent);
 
     marking.unmark(place);
   });
@@ -48,8 +47,8 @@ function dispatchTransition(subject, transition, marking) {
   const workflowEvent = new event.Event(subject, marking, transition, this.name);
 
   this.emit('workflow.transition', workflowEvent);
-  this.emit(util.format('workflow.%s.transition', this.name), workflowEvent);
-  this.emit(util.format('workflow.%s.transition.%s', this.name, transition.name), workflowEvent);
+  this.emit(`workflow.${this.name}.transition`, workflowEvent);
+  this.emit(`workflow.${this.name}.transition.${transition.name}`, workflowEvent);
 }
 
 function dispatchEnter(subject, transition, marking) {
@@ -57,10 +56,10 @@ function dispatchEnter(subject, transition, marking) {
   const workflowEvent = new event.Event(subject, marking, transition, this.name);
 
   this.emit('workflow.enter', workflowEvent);
-  this.emit(util.format('workflow.%s.enter', this.name), workflowEvent);
+  this.emit(`workflow.${this.name}.enter`, workflowEvent);
 
   places.forEach((place) => {
-    this.emit(util.format('workflow.%s.enter.%s', this.name, place), workflowEvent);
+    this.emit(`workflow.${this.name}.enter.${place}`, workflowEvent);
 
     marking.mark(place);
   });
@@ -70,10 +69,10 @@ function dispatchEntered(subject, transition, marking) {
   const workflowEvent = new event.Event(subject, marking, transition, this.name);
 
   this.emit('workflow.entered', workflowEvent);
-  this.emit(util.format('workflow.%s.entered', this.name), workflowEvent);
+  this.emit(`workflow.${this.name}.entered`, workflowEvent);
 
   transition.tos.forEach((place) => {
-    this.emit(util.format('workflow.%s.entered.%s', this.name, place), workflowEvent);
+    this.emit(`workflow.${this.name}.entered.${place}`, workflowEvent);
   });
 }
 
@@ -81,7 +80,7 @@ function dispatchAnnounce(subject, initialTransition, marking) {
   const workflowEvent = new event.Event(subject, marking, initialTransition, this.name);
 
   this.getEnabledTransitions(subject).forEach((transition) => {
-    this.emit(util.format('workflow.%s.announce.%s', this.name, transition.name), workflowEvent);
+    this.emit(`workflow.${this.name}.announce.${transition.name}`, workflowEvent);
   });
 }
 
@@ -102,22 +101,14 @@ class Workflow extends EventEmitter {
     const marking = this.markingStore.getMarking(subject);
 
     if (!(marking instanceof Marking)) {
-      throw new error.LogicError(
-        util.format(
-          'The value returned by the MarkingStore is not an instance of "Marking" for workflow "%s"',
-          this.name,
-        ),
-      );
+      const message = `The value returned by the MarkingStore is not an instance of "Marking" for workflow "${this.name}"`;
+      throw new error.LogicError(message);
     }
 
     if (!Object.keys(marking.places).length) {
       if (!this.definition.initialPlace) {
-        throw new error.LogicError(
-          util.format(
-            'The Marking is empty and there is no initial place for workflow "%s".',
-            this.name,
-          ),
-        );
+        const message = `The Marking is empty and there is no initial place for workflow "${this.name}"`;
+        throw new error.LogicError(message);
       }
       marking.mark(this.definition.initialPlace);
       this.markingStore.setMarking(subject, marking);
@@ -126,12 +117,13 @@ class Workflow extends EventEmitter {
     const places = this.definition.places;
 
     if (!places.size) {
-      throw new error.LogicError('It seems you forgot to add places to the current workflow.');
+      const message = 'It seems you forgot to add places to the current workflow';
+      throw new error.LogicError(message);
     }
 
     Object.keys(marking.places).forEach((placeName) => {
       if (!places.has(placeName)) {
-        const message = util.format('Place "%s" is not valid for workflow "%s".', placeName, this.name);
+        const message = `Place "${placeName}" is not valid for workflow "${this.name}"`;
         throw new error.LogicError(message);
       }
     });
@@ -188,7 +180,8 @@ class Workflow extends EventEmitter {
     });
 
     if (!applied) {
-      throw new error.LogicError(util.format('Unable to apply transition "%s" for workflow "%s".', transitionName, this.name));
+      const message = `Unable to apply transition "${transitionName}" for workflow "${this.name}"`;
+      throw new error.LogicError(message);
     }
   }
 }
