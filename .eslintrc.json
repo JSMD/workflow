@@ -4,6 +4,8 @@
         "import"
     ],
     "rules":{
-        "no-param-reassign":"off"
+		"arrow-body-style": "off",
+		"no-param-reassign": "off",
+		"padded-blocks": "off"
     }
 }

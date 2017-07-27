@@ -79,16 +79,11 @@ class Workflow extends EventEmitter {
   }
 
   can(subject, transitionName) {
-    let canTransit = false;
-    const transitions = this.getEnabledTransitions(subject);
 
-    transitions.forEach((transition) => {
-      if (transition.name === transitionName) {
-        canTransit = true;
-      }
+    return this.getEnabledTransitions(subject).some((transition) => {
+
+      return (transition.name === transitionName);
     });
-
-    return canTransit;
   }
 
   apply(subject, transitionName) {
